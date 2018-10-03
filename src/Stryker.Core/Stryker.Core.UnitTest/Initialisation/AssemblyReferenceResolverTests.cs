@@ -36,7 +36,7 @@ namespace Stryker.Core.UnitTest.Initialisation
 
             var target = new AssemblyReferenceResolver(processExecutorMock.Object, metadataReferenceProviderMock.Object);
 
-            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "ExampleProject").ToList();
+            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "ExampleProject", null).ToList();
 
             processExecutorMock.Verify(x => x.Start(
                 Path.GetDirectoryName(project), 
@@ -68,7 +68,7 @@ namespace Stryker.Core.UnitTest.Initialisation
 
             var target = new AssemblyReferenceResolver(processExecutorMock.Object, metadataReferenceProviderMock.Object);
 
-            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "ExampleProject");
+            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "ExampleProject", null);
 
             // three references should be found in the above output
             result.Count().ShouldBe(3);
@@ -92,6 +92,7 @@ namespace Stryker.Core.UnitTest.Initialisation
                 Path.GetDirectoryName(project), 
                 Path.GetFileName(project),
                 ""
+                , null
                 ).ToList());
 
             exception.Message.ShouldContain("PrintReferences");
@@ -120,7 +121,7 @@ namespace Stryker.Core.UnitTest.Initialisation
 
             var target = new AssemblyReferenceResolver(processExecutorMock.Object, metadataReferenceProviderMock.Object);
 
-            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "MGA.MaandstaatKeuringsFrontend.Facade").ToList();
+            var result = target.ResolveReferences(Path.GetDirectoryName(project), Path.GetFileName(project), "MGA.MaandstaatKeuringsFrontend.Facade", null).ToList();
 
             // the project under test should be skipped, even when it is in the nuget packages list
             foundReferences.ShouldNotContain(

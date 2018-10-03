@@ -1,4 +1,6 @@
 ﻿using Stryker.Core.Initialisation.ProjectComponent;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Stryker.Core.Initialisation
 {
@@ -33,5 +35,6 @@ namespace Stryker.Core.Initialisation
         /// The Folder/File structure found in the project under test.
         /// </summary>
         public FolderComposite ProjectContents { get; set; }
-    }
+        public IEnumerable<string> FullFrameworkRefernces { get; set; }
+     }
 }

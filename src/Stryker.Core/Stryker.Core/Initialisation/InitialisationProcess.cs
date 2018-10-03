@@ -1,9 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Stryker.Core.Logging;
 using Stryker.Core.MutationTest;
 using Stryker.Core.Options;
 using Stryker.Core.Reporters;
 using Stryker.Core.TestRunners;
+using System.Collections.Generic;
+using System.IO.Abstractions;
 using System.Linq;
 
 namespace Stryker.Core.Initialisation
@@ -45,11 +48,16 @@ namespace Stryker.Core.Initialisation
             _initialBuildProcess.InitialBuild(projectInfo.TestProjectPath, projectInfo.TestProjectFileName);
 
             // resolve assembly references
-            var references = _assemblyReferenceResolver.ResolveReferences(
+            IEnumerable<PortableExecutableReference> references;
+
+            System.Console.WriteLine("Get core refernces");
+            references = _assemblyReferenceResolver.ResolveReferences(
                     projectInfo.TestProjectPath,
                     projectInfo.TestProjectFileName,
-                    projectInfo.ProjectUnderTestAssemblyName)
+                    projectInfo.ProjectUnderTestAssemblyName,
+                    projectInfo.FullFrameworkRefernces)
                     .ToList();
+            
 
             var input = new MutationTestInput()
             {

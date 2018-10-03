@@ -49,7 +49,7 @@ namespace Stryker.Core.UnitTest.Initialisation
                 });
             initialTestProcessMock.Setup(x => x.InitialTest(It.IsAny<ITestRunner>())).Returns(999);
             initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<string>(), It.IsAny<string>()));
-            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), null))
                 .Returns(Enumerable.Empty<PortableExecutableReference>());
 
             var target = new InitialisationProcess(reporterMock.Object, 
@@ -99,7 +99,7 @@ namespace Stryker.Core.UnitTest.Initialisation
                 });
             initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<string>(), It.IsAny<string>()));
             initialTestProcessMock.Setup(x => x.InitialTest(It.IsAny<ITestRunner>())).Throws(new InitialTestRunFailedException("")); // failing test
-            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), null))
                 .Returns(Enumerable.Empty<PortableExecutableReference>()).Verifiable();
 
             var target = new InitialisationProcess(reporterMock.Object, 

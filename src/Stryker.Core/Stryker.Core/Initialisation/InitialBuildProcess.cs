@@ -2,6 +2,7 @@
 using Stryker.Core.Logging;
 using Stryker.Core.Testing;
 using System;
+using System.Collections.Generic;
 
 namespace Stryker.Core.Initialisation
 {
@@ -24,9 +25,27 @@ namespace Stryker.Core.Initialisation
             if (result.ExitCode != 0)
             {
                 // Initial build failed
-                throw new Exception(result.Output);
+                _logger.LogInformation("Could not build with dotnet build");
+                TryBuildMSBuild(path);
             }
             _logger.LogInformation("Initial build successful");
+        }
+
+        private void TryBuildMSBuild(string path)
+        {
+            _logger.LogInformation("Starting initial build with msbuild");
+            //var globalProperties = new Dictionary<string, string>();
+            //var buildRequest = new BuildRequestData(path, globalProperties, null, new string[] { "Build" }, null);
+            //var pc = new ProjectCollection();
+
+            //var result = BuildManager.DefaultBuildManager.Build(new BuildParameters(pc), buildRequest);
+            var result = _processExecutor.Start(path, @"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin\MSBuild.exe", "");
+
+            if(result.ExitCode != 0)
+            {
+                throw new Exception(result.Output.ToString());
+
+            }
         }
     }
 }

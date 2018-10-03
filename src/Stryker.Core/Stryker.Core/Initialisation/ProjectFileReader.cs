@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using Stryker.Core.Logging;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Abstractions;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -8,10 +11,13 @@ namespace Stryker.Core.Initialisation
 {
     public class ProjectFileReader
     {
-        private ILogger _logger { get; set; }
+        private IFileSystem _fileSystem;
 
-        public ProjectFileReader()
+        private ILogger _logger;
+
+        public ProjectFileReader(IFileSystem fileSystem)
         {
+            _fileSystem = fileSystem;
             _logger = ApplicationLogging.LoggerFactory.CreateLogger<ProjectFileReader>();
         }
 
@@ -19,13 +25,14 @@ namespace Stryker.Core.Initialisation
         {
             _logger.LogDebug("Reading the project file {0}", projectFileContents.ToString());
 
-            var rererence = FindProjectReference(projectFileContents, projectUnderTestNameFilter);
             var targetFramework = FindTargetFrameworkReference(projectFileContents);
+            var reference = FindProjectReference(projectFileContents, projectUnderTestNameFilter);
+            
             var assemblyName = FindAssemblyName(projectFileContents);
 
             return new ProjectFile()
             {
-                ProjectReference = rererence,
+                ProjectReference = reference,
                 TargetFramework = targetFramework
             };
         }
@@ -69,7 +76,12 @@ namespace Stryker.Core.Initialisation
 
         private string FindTargetFrameworkReference(XDocument document)
         {
-            return document.Elements().Descendants().Where(x => string.Equals(x.Name.LocalName, "TargetFramework", StringComparison.OrdinalIgnoreCase)).FirstOrDefault().Value;
+            return document.Elements()
+                .Descendants()
+                .Where(x => 
+                string.Equals(x.Name.LocalName, "TargetFramework", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(x.Name.LocalName, "TargetFrameworkVersion", StringComparison.OrdinalIgnoreCase
+                )).FirstOrDefault().Value;
         }
 
         public string FindAssemblyName(XDocument document)

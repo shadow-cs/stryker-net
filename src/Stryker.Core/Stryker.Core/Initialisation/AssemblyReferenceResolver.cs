@@ -5,7 +5,9 @@ using Stryker.Core.Testing;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Abstractions;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace Stryker.Core.Initialisation
 {
@@ -27,47 +29,60 @@ namespace Stryker.Core.Initialisation
         }
 
         public AssemblyReferenceResolver() : this(new ProcessExecutor(), new MetadataReferenceProvider()) { }
-
+        
         /// <summary>
         /// Uses msbuild to resolve all references for the given test project
         /// </summary>
         /// <param name="projectFile">The test project file location</param>
         /// <returns>References</returns>
-        public IEnumerable<PortableExecutableReference> ResolveReferences(string projectPath, string projectFileName, string projectUnderTestAssemblyName)
+        public IEnumerable<PortableExecutableReference> ResolveReferences(string projectPath, string projectFileName, string projectUnderTestAssemblyName, IEnumerable<string> csprojes)
         {
             // Execute dotnet msbuild with the task PrintReferences
-            var result = _processExecutor.Start(
-                projectPath, 
-                "dotnet", 
-                $"msbuild {projectFileName} /nologo /t:PrintReferences");
-
-            _logger.LogTrace(@"""{0} dotnet msbuild {1} /nologo /t:PrintReferences"" resulted in {2}", projectPath, projectFileName, result.Output);
-
-            if (result.ExitCode != 0)
+            foreach (var csproj in csprojes)
             {
-                _logger.LogError(@"The task PrintReferences was not found in your project file. Please add the task to {0}", projectFileName);
-                throw new ApplicationException($"The task PrintReferences was not found in your project file. Please add the task to {projectFileName}");
-            }
+                _logger.LogWarning(csproj);
+                _logger.LogWarning(Path.GetFullPath(@"..\", csproj));
+                _logger.LogWarning(csproj.Split(@"/").Last());
+                var result = _processExecutor.Start(
+                    Path.GetFullPath(@"..\", csproj),
+                    "dotnet",
+                    $"msbuild {csproj.Split(@"/").Last()} /nologo");
 
-            var rows = result.Output.Split(new string[] { Environment.NewLine.ToString() }, StringSplitOptions.None).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+                _logger.LogTrace(@"""{0} dotnet msbuild {1} /nologo "" resulted in {2}", projectPath, projectFileName, result.Output);
+
+                if (result.ExitCode != 0)
+                {
+                    _logger.LogError(@"The task PrintReferences was not found in your project file. Please add the task to {0}", projectFileName);
+                    throw new ApplicationException($"The task PrintReferences was not found in your project file. Please add the task to {projectFileName}");
+                }
+                _logger.LogWarning("Resolving references");
+                var files = Directory.GetFiles($"{Path.GetFullPath(@"..\", csproj)}\\bin\\Debug").Where(a => Path.GetExtension(a) == ".dll");
+                _logger.LogWarning($"Found {files.Count()} refernces");
+                foreach (var file in files)
+                {
+                    _logger.LogWarning($"Resolved reference {file.Trim()}");
+                    yield return _metadataReference.CreateFromFile(file.Trim());
+                }
+            }
+            //var rows = result.Output.Split(new string[] { Environment.NewLine.ToString() }, StringSplitOptions.None).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
 
             // All rows except the last contain the project dependencies
-            foreach (var reference in GetReferencePathsFromOutput(rows.Reverse().Skip(1))
-                .Distinct()
-                .Where(x => Path.GetFileNameWithoutExtension(x) != projectUnderTestAssemblyName))
-            {
-                _logger.LogDebug(@"Resolved reference {0}", reference.Trim());
-                yield return _metadataReference.CreateFromFile(reference.Trim());
-            }
+            //foreach (var reference in GetReferencePathsFromOutput(rows.Reverse().Skip(1))
+            //    .Distinct()
+            //    .Where(x => Path.GetFileNameWithoutExtension(x) != projectUnderTestAssemblyName))
+            //{
+            //    _logger.LogDebug(@"Resolved reference {0}", reference.Trim());
+            //    yield return _metadataReference.CreateFromFile(reference.Trim());
+            //}
 
-            // the last part contains the package dependencies, seperated by the path seperator char
-            foreach (var reference in GetAssemblyPathsFromOutput(rows.Last())
-                .Distinct()
-                .Where(x => Path.GetFileNameWithoutExtension(x) != projectUnderTestAssemblyName))
-            {
-                _logger.LogDebug(@"Resolved reference {0}", reference.Trim());
-                yield return _metadataReference.CreateFromFile(reference.Trim());
-            }
+            //// the last part contains the package dependencies, seperated by the path seperator char
+            //foreach (var reference in GetAssemblyPathsFromOutput(rows.Last())
+            //    .Distinct()
+            //    .Where(x => Path.GetFileNameWithoutExtension(x) != projectUnderTestAssemblyName))
+            //{
+            //    _logger.LogDebug(@"Resolved reference {0}", reference.Trim());
+            //    yield return _metadataReference.CreateFromFile(reference.Trim());
+            //}
         }
 
 

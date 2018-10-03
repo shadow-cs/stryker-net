@@ -1,6 +1,8 @@
-﻿using Shouldly;
+﻿using Moq;
+using Shouldly;
 using Stryker.Core.Initialisation;
 using System;
+using System.IO.Abstractions;
 using System.Xml.Linq;
 using Xunit;
 
@@ -8,6 +10,12 @@ namespace Stryker.Core.UnitTest.Initialisation
 {
     public class ProjectFileReaderTests
     {
+        private Mock<IFileSystem> _fileSystemMock;
+
+        public ProjectFileReaderTests()
+        {
+            _fileSystemMock = new Mock<IFileSystem>(MockBehavior.Strict);
+        }
         [Theory]
         [InlineData("netcoreapp2.0")]
         [InlineData("netcoreapp1.1")]
@@ -33,7 +41,7 @@ namespace Stryker.Core.UnitTest.Initialisation
     </ItemGroup>
                 
 </Project>");
-            var result = new ProjectFileReader().ReadProjectFile(xDocument, null);
+            var result = new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, null);
 
             result.ProjectReference.ShouldBe(@"..\ExampleProject\ExampleProject.csproj");
             result.TargetFramework.ShouldBe(target);
@@ -57,7 +65,7 @@ namespace Stryker.Core.UnitTest.Initialisation
     </ItemGroup>
                 
 </Project>");
-            Assert.Throws<NotSupportedException>(() => new ProjectFileReader().ReadProjectFile(xDocument, null));
+            Assert.Throws<NotSupportedException>(() => new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, null));
         }
 
         [Fact]
@@ -82,7 +90,7 @@ namespace Stryker.Core.UnitTest.Initialisation
         <ProjectReference Include=""..\AnotherProject\AnotherProject.csproj"" />
     </ItemGroup>
 </Project>");
-            var exception = Assert.Throws<NotSupportedException>(() => new ProjectFileReader().ReadProjectFile(xDocument, null));
+            var exception = Assert.Throws<NotSupportedException>(() => new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, null));
             exception.Message.ShouldContain("--project");
         }
 
@@ -113,7 +121,7 @@ namespace Stryker.Core.UnitTest.Initialisation
         <ProjectReference Include=""..\AnotherProject\AnotherProject.csproj"" />
     </ItemGroup>
 </Project>");
-            var result = new ProjectFileReader().ReadProjectFile(xDocument, shouldMatch);
+            var result = new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, shouldMatch);
             result.ProjectReference.ShouldBe(@"..\ExampleProject\ExampleProject.csproj");
         }
 
@@ -144,7 +152,7 @@ namespace Stryker.Core.UnitTest.Initialisation
         <ProjectReference Include=""..\AnotherProject\AnotherProject.csproj"" />
     </ItemGroup>
 </Project>");
-            var exception = Assert.Throws<ArgumentException>(() => new ProjectFileReader().ReadProjectFile(xDocument, shouldMatchMoreThanOne));
+            var exception = Assert.Throws<ArgumentException>(() => new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, shouldMatchMoreThanOne));
             exception.Message.ShouldContain("more than one", Case.Insensitive);
         }
 
@@ -173,7 +181,7 @@ namespace Stryker.Core.UnitTest.Initialisation
         <ProjectReference Include=""..\AnotherProject\AnotherProject.csproj"" />
     </ItemGroup>
 </Project>");
-            var exception = Assert.Throws<ArgumentException>(() => new ProjectFileReader().ReadProjectFile(xDocument, shouldMatchNone));
+            var exception = Assert.Throws<ArgumentException>(() => new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, shouldMatchNone));
             exception.Message.ShouldContain("no project", Case.Insensitive);
         }
 
@@ -207,7 +215,7 @@ namespace Stryker.Core.UnitTest.Initialisation
   </ItemGroup>
 </Project>
 ");
-            var result = new ProjectFileReader().FindAssemblyName(xDocument);
+            var result = new ProjectFileReader(_fileSystemMock.Object).FindAssemblyName(xDocument);
             result.ShouldBe(@"dotnet-stryker");
         }
 
@@ -240,7 +248,7 @@ namespace Stryker.Core.UnitTest.Initialisation
   </ItemGroup>
 </Project>
 ");
-            var result = new ProjectFileReader().ReadProjectFile(xDocument, "");
+            var result = new ProjectFileReader(_fileSystemMock.Object).ReadProjectFile(xDocument, "");
             result.AssemblyName.ShouldBeNull();
         }
     }

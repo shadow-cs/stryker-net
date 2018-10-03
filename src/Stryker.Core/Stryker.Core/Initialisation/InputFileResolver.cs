@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Stryker.Core.Initialisation.ProjectComponent;
 using Stryker.Core.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Abstractions;
@@ -34,13 +35,18 @@ namespace Stryker.Core.Initialisation
         public ProjectInfo ResolveInput(string currentDirectory, string projectName)
         {
             string projectFile = ScanProjectFile(currentDirectory);
-            var currentProjectInfo = ReadProjectFile(projectFile, projectName);
+            var file = _fileSystem.File.OpenText(projectFile);
+            XDocument xDocument = XDocument.Load(projectFile);
+
+            var currentProjectInfo = ReadProjectFile(projectFile, projectName, currentDirectory);
+            var fullFrameworkReferences = GetFullFrameworkReferences(xDocument, currentDirectory);
             var projectUnderTestPath = Path.GetDirectoryName(Path.GetFullPath($"{currentDirectory}{Path.DirectorySeparatorChar}{currentProjectInfo.ProjectReference}"));
             var projectUnderTestInfo = FindProjectUnderTestAssemblyName(Path.GetFullPath($"{projectUnderTestPath}{Path.DirectorySeparatorChar}{Path.GetFileName(currentProjectInfo.ProjectReference)}"));
             var inputFiles = FindInputFiles(projectUnderTestPath);
 
             return new ProjectInfo()
             {
+                FullFrameworkRefernces = fullFrameworkReferences,
                 TestProjectPath = currentDirectory,
                 TestProjectFileName = Path.GetFileName(projectFile),
                 TargetFramework = currentProjectInfo.TargetFramework,
@@ -93,12 +99,18 @@ namespace Stryker.Core.Initialisation
             return projectFiles.First();
         }
 
-        public ProjectFile ReadProjectFile(string projectFilePath, string projectName)
+        public ProjectFile ReadProjectFile(string projectFilePath, string projectName, string basePath)
         {
             var projectFile = _fileSystem.File.OpenText(projectFilePath);
             XDocument xDocument = XDocument.Load(projectFile);
-            var projectInfo = new ProjectFileReader().ReadProjectFile(xDocument, projectName);
-
+            var projectInfo = new ProjectFileReader(_fileSystem).ReadProjectFile(xDocument, projectName);
+            List<string> fullFrameworkReferences = new List<string>();
+            if (projectInfo.TargetFramework.StartsWith("v"))
+            {
+                projectInfo.FullFrameworkReferences = GetFullFrameworkReferences(xDocument, basePath);
+                Console.WriteLine($"{fullFrameworkReferences}");
+            }
+            
             _logger.LogDebug("Values found in project file {@0}", projectInfo);
 
             return projectInfo;
@@ -108,7 +120,38 @@ namespace Stryker.Core.Initialisation
         {
             var projectFile = _fileSystem.File.OpenText(projectFilePath);
             XDocument xDocument = XDocument.Load(projectFile);
-            return new ProjectFileReader().FindAssemblyName(xDocument);
+            return new ProjectFileReader(_fileSystem).FindAssemblyName(xDocument);
+        }
+
+        private List<string> GetFullFrameworkReferences(XDocument document, string basePath)
+        {
+            var projectReferences = document.Elements()
+                .Descendants()
+                .Where(x => string.Equals(x.Name.LocalName, "ProjectReference", StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.Attributes()
+                    .Where(a => string.Equals(a.Name.LocalName, "include", StringComparison.OrdinalIgnoreCase))
+                    .Single()
+                    .Value)
+                .ToList();
+            List<string> filePaths = new List<string>();
+            foreach (var path in projectReferences)
+            {
+                //Change get currentdirectory
+                Console.WriteLine($"BaseUri: {basePath}");
+                string fullFilePath = Path.GetFullPath(path, basePath);
+                basePath = Path.GetFullPath(@"..\", fullFilePath);
+                var file = _fileSystem.File.OpenText(fullFilePath);
+
+                var filesToAdd = GetFullFrameworkReferences(XDocument.Load(file), basePath);
+                Console.WriteLine($"Count csprojfiles: {filesToAdd.Count}");
+                if (filesToAdd.Count > 0)
+                {
+                    Console.WriteLine($"{filesToAdd.FirstOrDefault()}");
+                    filePaths.AddRange(filesToAdd);
+                }
+                filePaths.Add(fullFilePath);
+            }
+            return filePaths;
         }
     }
 }
