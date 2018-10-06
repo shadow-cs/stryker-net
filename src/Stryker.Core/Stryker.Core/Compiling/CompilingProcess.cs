@@ -37,11 +37,6 @@ namespace Stryker.Core.Compiling
         /// <param name="ms">The memory stream to store the compilation result onto</param>
         public CompilingProcessResult Compile(IEnumerable<SyntaxTree> syntaxTrees, MemoryStream ms)
         {
-            foreach(var reffernce in _input.AssemblyReferences)
-            {
-                _logger.LogWarning(reffernce.Display);
-                
-            }
             var compiler = CSharpCompilation.Create(_input.ProjectInfo.ProjectUnderTestAssemblyName,
                 syntaxTrees: syntaxTrees,
                 options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
