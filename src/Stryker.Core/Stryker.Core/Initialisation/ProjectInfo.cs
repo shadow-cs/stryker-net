@@ -1,4 +1,6 @@
-﻿using Stryker.Core.Initialisation.ProjectComponent;
+﻿using Microsoft.CodeAnalysis;
+using Stryker.Core.Initialisation.ProjectComponent;
+using System.Collections.Generic;
 
 namespace Stryker.Core.Initialisation
 {
@@ -26,12 +28,12 @@ namespace Stryker.Core.Initialisation
         public string ProjectUnderTestProjectName { get; set; }
         /// <summary>
         /// The target framework for the ProjectUnderTest.
-        /// Default: netcoreapp2.0
         /// </summary>
         public string TargetFramework { get; set; }
         /// <summary>
         /// The Folder/File structure found in the project under test.
         /// </summary>
         public FolderComposite ProjectContents { get; set; }
+        public AdhocWorkspace Workspace { get; set; }
     }
 }

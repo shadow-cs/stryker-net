@@ -1,14 +1,19 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Stryker.Core.Exceptions;
 using Stryker.Core.Logging;
 using Stryker.Core.Testing;
 using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Stryker.Core.Initialisation
 {
     public interface IInitialBuildProcess
     {
-        void InitialBuild(string path, string projectName);
+        //void InitialBuild(string path, string projectName);
+        Task InitialBuild(AdhocWorkspace workspace);
     }
     
     public class InitialBuildProcess : IInitialBuildProcess
@@ -22,17 +27,25 @@ namespace Stryker.Core.Initialisation
             _logger = ApplicationLogging.LoggerFactory.CreateLogger<InitialBuildProcess>();
         }
 
-        public void InitialBuild(string path, string projectName)
+        public async Task InitialBuild(AdhocWorkspace workspace)
         {
-            _logger.LogInformation("Starting initial build");
-            var result = _processExecutor.Start(path, "dotnet", $"build {projectName}");
-            _logger.LogDebug("Initial build output {0}", result.Output);
-            if (result.ExitCode != 0)
+            //// compile workspaces
+            //_logger.LogInformation("Starting initial build");
+            //var result = _processExecutor.Start(path, "dotnet", $"build {projectName}");
+            //_logger.LogDebug("Initial build output {0}", result.Output);
+            //if (result.ExitCode != 0)
+            //{
+            //    // Initial build failed
+            //    throw new StrykerInputException("Initial build of targeted project failed. Please make targeted project buildable.", result.Output);
+            //}
+            //_logger.LogInformation("Initial build successful");
+
+            var compilation = await workspace.CurrentSolution.Projects.Last().GetCompilationAsync();
+
+            using (var stream = new MemoryStream())
             {
-                // Initial build failed
-                throw new StrykerInputException("Initial build of targeted project failed. Please make targeted project buildable.", result.Output);
+                var compilationresult = compilation.Emit(stream);
             }
-            _logger.LogInformation("Initial build successful");
         }
     }
 }

@@ -1,7 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Buildalyzer;
+using Buildalyzer.Workspaces;
+using Microsoft.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Stryker.Core.Exceptions;
 using Stryker.Core.Initialisation.ProjectComponent;
 using Stryker.Core.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Abstractions;
@@ -39,28 +43,49 @@ namespace Stryker.Core.Initialisation
         /// </summary>
         public ProjectInfo ResolveInput(string currentDirectory, string projectName)
         {
+            //// create workspaces
             var projectFile = ScanProjectFile(currentDirectory);
-            var currentProjectInfo = ReadProjectFile(projectFile, projectName);
+
+            AnalyzerManager manager = new AnalyzerManager();
+            ProjectAnalyzer analyzer = manager.GetProject(projectFile);
+            var analyzerResult = analyzer.Build().First();
+
+            //var currentProjectInfo = ReadProjectFile(projectFile, projectName);
+
+            // read the test project file
+            var currentProjectInfo = new ProjectFile()
+            {
+                AssemblyName = analyzerResult.Properties.GetValueOrDefault("AssemblyTitle"),
+                ProjectReference = analyzerResult.ProjectReferences.FirstOrDefault(),
+                TargetFramework = analyzerResult.Properties.GetValueOrDefault("TargetFramework")
+            };
             var projectReferencePath = FilePathUtils.ConvertPathSeparators(currentProjectInfo.ProjectReference);
-            
             var projectUnderTestPath = Path.GetDirectoryName(Path.GetFullPath(Path.Combine(currentDirectory, projectReferencePath)));
-            var projectReference = Path.Combine(projectUnderTestPath, Path.GetFileName(projectReferencePath));
-            var projectFilePath = Path.GetFullPath(projectReference);
-            var projectUnderTestInfo = FindProjectUnderTestAssemblyName(projectFilePath);
+
+            var analyzer2 = manager.GetProject(projectReferencePath);
+            var analyzerResult2 = analyzer2.Build().First();
+
+            var projectFilePath = Path.GetDirectoryName(projectReferencePath);
+            var projectUnderTestInfo = new ProjectFile()
+            {
+                AssemblyName = analyzerResult2.Properties.GetValueOrDefault("AssemblyTitle"),
+                ProjectReference = analyzerResult2.ProjectReferences.FirstOrDefault(),
+                TargetFramework = analyzerResult2.Properties.GetValueOrDefault("TargetFramework")
+            };
             var inputFiles = new FolderComposite();
-            
-            foreach (var dir in ExtractProjectFolders(projectFilePath))
+
+            foreach (var dir in ExtractProjectFolders(projectReferencePath))
             {
                 var folder = _fileSystem.Path.Combine(Path.GetDirectoryName(projectFilePath), dir);
 
                 _logger.LogDebug($"Scanning {folder}");
                 if (!_fileSystem.Directory.Exists(folder))
                 {
-                     throw new DirectoryNotFoundException($"Can't find {folder}");
+                    throw new DirectoryNotFoundException($"Can't find {folder}");
                 }
                 inputFiles.Add(FindInputFiles(folder));
             }
-            
+
             return new ProjectInfo()
             {
                 TestProjectPath = currentDirectory,
@@ -68,8 +93,9 @@ namespace Stryker.Core.Initialisation
                 TargetFramework = currentProjectInfo.TargetFramework,
                 ProjectContents = inputFiles,
                 ProjectUnderTestPath = projectUnderTestPath,
-                ProjectUnderTestAssemblyName = projectUnderTestInfo ?? Path.GetFileNameWithoutExtension(projectReferencePath),
+                ProjectUnderTestAssemblyName = projectUnderTestInfo.AssemblyName,
                 ProjectUnderTestProjectName = Path.GetFileNameWithoutExtension(projectReferencePath),
+                Workspace = analyzer.GetWorkspace(true)
             };
         }
 

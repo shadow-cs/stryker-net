@@ -49,7 +49,7 @@ namespace Stryker.Core.Initialisation
             var projectInfo = _inputFileResolver.ResolveInput(options.BasePath, options.ProjectUnderTestNameFilter);
             
             // initial build
-            _initialBuildProcess.InitialBuild(projectInfo.TestProjectPath, projectInfo.TestProjectFileName);
+            _initialBuildProcess.InitialBuild(projectInfo.Workspace).Wait();
 
             string projectUnderTestProjectFile = projectInfo.ProjectUnderTestPath + Path.DirectorySeparatorChar + projectInfo.ProjectUnderTestProjectName + ".csproj";
             

@@ -61,7 +61,7 @@ namespace Stryker.Core.Initialisation
             return FilePathUtils.ConvertPathSeparators(projectReferences.Single());
         }
 
-        private string HandleMoreThanOneProjectReferenceFound(IEnumerable<string> projectReferences, string projectUnderTestNameFilter)
+        public string HandleMoreThanOneProjectReferenceFound(IEnumerable<string> projectReferences, string projectUnderTestNameFilter)
         {
             var referenceChoise = BuildReferenceChoise(projectReferences);
 
@@ -109,7 +109,12 @@ namespace Stryker.Core.Initialisation
             }
             else
             {
-                return document.Elements().Descendants().Where(x => string.Equals(x.Name.LocalName, "TargetFramework", StringComparison.OrdinalIgnoreCase)).FirstOrDefault().Value;
+                return document.Elements()
+                    .Descendants()
+                    .Where(x =>
+                        string.Equals(x.Name.LocalName, "TargetFramework", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(x.Name.LocalName, "TargetFrameworkVersion", StringComparison.OrdinalIgnoreCase
+                    )).FirstOrDefault().Value;
             }
         }
 
