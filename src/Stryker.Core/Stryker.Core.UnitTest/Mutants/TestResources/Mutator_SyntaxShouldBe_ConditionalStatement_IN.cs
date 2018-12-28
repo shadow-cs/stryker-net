@@ -14,6 +14,16 @@ namespace StrykerNet.UnitTest.Mutants.TestResources
             int b = a += 1 + 2;
             var (one, two) = (1 + 1, "");
             int Add(int x, int y) => x + y;
+
+            if (Demo(out var test)) {
+                test = a + b;
+            }
+        }
+
+        private bool Demo(out string test)
+        {
+            test = "dummy";
+            return true;
         }
     }
 }

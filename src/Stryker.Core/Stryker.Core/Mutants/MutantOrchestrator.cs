@@ -69,43 +69,49 @@ namespace Stryker.Core.Mutants
         /// <returns>Mutated node</returns>
         public SyntaxNode Mutate(SyntaxNode currentNode)
         {
-            if (GetExpressionSyntax(currentNode) is var expressionSyntax && expressionSyntax != null)
+            //if (GetExpressionSyntax(currentNode) is var expressionSyntax && expressionSyntax != null)
+            //{
+            //    //if (currentNode is ExpressionStatementSyntax)
+            //    //{
+            //    //    if (GetExpressionSyntax(expressionSyntax) is var subExpressionSyntax && subExpressionSyntax != null)
+            //    //    {
+            //    //        // The expression of a ExpressionStatement cannot be mutated directly
+            //    //        return currentNode.ReplaceNode(expressionSyntax, Mutate(expressionSyntax));
+            //    //    } else
+            //    //    {
+            //    //        // If the EpxressionStatement does not contain a expression that can be mutated with conditional expression...
+            //    //        // it should be mutated with if statements
+            //    //        return MutateWithIfStatements(currentNode as ExpressionStatementSyntax);
+            //    //    }
+            //    //}
+            //    // The mutations should be placed using a ConditionalExpression
+            //    return currentNode.ReplaceNode(expressionSyntax, MutateWithConditionalExpressions(expressionSyntax));
+            //}
+            //else if (currentNode is StatementSyntax statement && currentNode.Kind() != SyntaxKind.Block)
+            //{
+            //    return MutateWithIfStatements(statement);
+            //}
+            if (GetExpressionSyntax(currentNode) is var expressionSyntax && expressionSyntax.Item1 != null)
             {
-                if (currentNode is ExpressionStatementSyntax)
+                var childsToMutate = expressionSyntax.Item2 ?? Enumerable.Empty<SyntaxNode>();
+                var nodeCopy = currentNode.TrackNodes(childsToMutate.Append(expressionSyntax.Item1));
+                foreach (var child in childsToMutate)
                 {
-                    if (GetExpressionSyntax(expressionSyntax) is var subExpressionSyntax && subExpressionSyntax != null)
+                    var mutatedNode = Mutate(child);
+                    var originalNode = nodeCopy.GetCurrentNode(child);
+                    if (!mutatedNode.IsEquivalentTo(originalNode))
                     {
-                        // The expression of a ExpressionStatement cannot be mutated directly
-                        return currentNode.ReplaceNode(expressionSyntax, Mutate(expressionSyntax));
-                    } else
-                    {
-                        // If the EpxressionStatement does not contain a expression that can be mutated with conditional expression...
-                        // it should be mutated with if statements
-                        return MutateWithIfStatements(currentNode as ExpressionStatementSyntax);
+                        nodeCopy = nodeCopy.ReplaceNode(originalNode, mutatedNode);
                     }
                 }
-                // The mutations should be placed using a ConditionalExpression
-                return currentNode.ReplaceNode(expressionSyntax, MutateWithConditionalExpressions(expressionSyntax));
-            }
-            else if (currentNode is StatementSyntax statement && currentNode.Kind() != SyntaxKind.Block)
-            {
-                return MutateWithIfStatements(statement);
+                var original = nodeCopy.GetCurrentNode(expressionSyntax.Item1);
+                return currentNode.ReplaceNode(original, MutateWithConditionalExpressions(original));
             }
             else
             {
-                // No statement found yet, search deeper in the tree for statements to mutate
+                // No statement found yet, search deeper in the tree for nodes to mutate
                 var children = currentNode.ChildNodes().ToList();
-                var childCopy = currentNode.TrackNodes(children);
-                foreach (var child in children)
-                {
-                    var mutatedNode = Mutate(child);
-                    var originalNode = childCopy.GetCurrentNode(child);
-                    if (!mutatedNode.IsEquivalentTo(originalNode))
-                    {
-                        childCopy = childCopy.ReplaceNode(originalNode, mutatedNode);
-                    }
-                }
-                return childCopy;
+                return MutateSelectedNodes(currentNode, children);
             }
         }
 
@@ -122,6 +128,21 @@ namespace Stryker.Core.Mutants
             {
                 yield return mutant;
             }
+        }
+
+        private SyntaxNode MutateSelectedNodes(SyntaxNode currentNode, IEnumerable<SyntaxNode> nodesToMutate)
+        {
+            var childCopy = currentNode.TrackNodes(nodesToMutate);
+            foreach (var child in nodesToMutate)
+            {
+                var mutatedNode = Mutate(child);
+                var originalNode = childCopy.GetCurrentNode(child);
+                if (!mutatedNode.IsEquivalentTo(originalNode))
+                {
+                    childCopy = childCopy.ReplaceNode(originalNode, mutatedNode);
+                }
+            }
+            return childCopy;
         }
 
         private SyntaxNode MutateWithIfStatements(StatementSyntax currentNode)
@@ -175,27 +196,51 @@ namespace Stryker.Core.Mutants
             return mutatedNode;
         }
 
-        private ExpressionSyntax GetExpressionSyntax(SyntaxNode node)
+        private (ExpressionSyntax, IEnumerable<SyntaxNode>) GetExpressionSyntax(SyntaxNode node)
         {
             switch (node.GetType().Name)
             {
                 case nameof(LocalDeclarationStatementSyntax):
                     var localDeclarationStatement = node as LocalDeclarationStatementSyntax;
-                    return localDeclarationStatement.Declaration.Variables.First().Initializer?.Value;
+                    return (localDeclarationStatement.Declaration.Variables.First().Initializer?.Value, null);
                 case nameof(AssignmentExpressionSyntax):
                     var assignmentExpression = node as AssignmentExpressionSyntax;
-                    return assignmentExpression.Right;
+                    return (assignmentExpression.Right, null);
                 case nameof(ReturnStatementSyntax):
                     var returnStatement = node as ReturnStatementSyntax;
-                    return returnStatement.Expression;
+                    return (returnStatement.Expression, null);
                 case nameof(LocalFunctionStatementSyntax):
                     var localFunction = node as LocalFunctionStatementSyntax;
-                    return localFunction.ExpressionBody?.Expression;
+                    return (localFunction.ExpressionBody?.Expression, null);
                 case nameof(ExpressionStatementSyntax):
                     var expressionStatement = node as ExpressionStatementSyntax;
-                    return expressionStatement.Expression;
+                    return (GetExpressionSyntax(expressionStatement.Expression).Item1, null);
+                case nameof(CatchFilterClauseSyntax):
+                    var catchFilterClause = node as CatchFilterClauseSyntax;
+                    return (catchFilterClause.FilterExpression, null);
+                case nameof(IfStatementSyntax):
+                    var ifStatement = node as IfStatementSyntax;
+                    return (ifStatement.Condition, new List<SyntaxNode>() {
+                        ifStatement.Else,
+                        ifStatement.Statement
+                    });
+                case nameof(WhileStatementSyntax):
+                    var whileStatement = node as WhileStatementSyntax;
+                    return (whileStatement.Condition, new List<SyntaxNode>() {
+                        whileStatement.Statement
+                    });
+                case nameof(ForEachStatementSyntax):
+                    var forEachStatement = node as ForEachStatementSyntax;
+                    return (forEachStatement.Expression, new List<SyntaxNode>() {
+                        forEachStatement.Statement
+                    });
+                case nameof(ForStatementSyntax):
+                    var forStatement = node as ForStatementSyntax;
+                    return (forStatement.Condition, new List<SyntaxNode>() {
+                        forStatement.Statement
+                    });
                 default:
-                    return null;
+                    return (null, null);
             }
         }
     }
