@@ -6,6 +6,7 @@ using Stryker.Core.Options;
 using Stryker.Core.Reporters;
 using Stryker.Core.TestRunners;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
 
@@ -50,14 +51,11 @@ namespace Stryker.Core.Initialisation
             // resolve assembly references
             IEnumerable<PortableExecutableReference> references;
 
-            System.Console.WriteLine("Get core refernces");
-            references = _assemblyReferenceResolver.ResolveReferences(
-                    projectInfo.TestProjectPath,
-                    projectInfo.TestProjectFileName,
-                    projectInfo.ProjectUnderTestAssemblyName,
-                    projectInfo.FullFrameworkRefernces)
+            string projectUnderTestProjectFile = projectInfo.ProjectUnderTestPath + Path.DirectorySeparatorChar + projectInfo.ProjectUnderTestProjectName + ".csproj";
+
+            references = _assemblyReferenceResolver
+                .ResolveReferences(projectUnderTestProjectFile)
                     .ToList();
-            
 
             var input = new MutationTestInput()
             {
