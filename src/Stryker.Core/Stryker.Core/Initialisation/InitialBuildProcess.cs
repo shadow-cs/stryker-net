@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Emit;
 using Microsoft.Extensions.Logging;
 using Stryker.Core.Exceptions;
 using Stryker.Core.Logging;
@@ -27,7 +28,7 @@ namespace Stryker.Core.Initialisation
             _logger = ApplicationLogging.LoggerFactory.CreateLogger<InitialBuildProcess>();
         }
 
-        public async Task InitialBuild(AdhocWorkspace workspace)
+        public async Task<bool> InitialBuild(AdhocWorkspace workspace)
         {
             //// compile workspaces
             //_logger.LogInformation("Starting initial build");
@@ -38,13 +39,35 @@ namespace Stryker.Core.Initialisation
             //    // Initial build failed
             //    throw new StrykerInputException("Initial build of targeted project failed. Please make targeted project buildable.", result.Output);
             //}
-            //_logger.LogInformation("Initial build successful");
-
-            var compilation = await workspace.CurrentSolution.Projects.Last().GetCompilationAsync();
-
-            using (var stream = new MemoryStream())
+            bool success;
+            var solution = workspace.CurrentSolution;
+            var graph = solution.GetProjectDependencyGraph();
+            foreach (var projectId in graph.GetTopologicallySortedProjects())
             {
-                var compilationresult = compilation.Emit(stream);
+                var project = solution.GetProject(projectId);
+                Compilation projectCompilation = project.GetCompilationAsync().Result;
+                if (null != projectCompilation && !string.IsNullOrEmpty(projectCompilation.AssemblyName))
+                {
+                    using (var stream = new MemoryStream())
+                    {
+                        EmitResult result = projectCompilation.Emit(stream);
+                        if (result.Success)
+                        {
+                            string fileName = string.Format("{0}.dll", projectCompilation.AssemblyName);
+
+                            using (FileStream file = File.Create(project.OutputFilePath + '\\' + fileName))
+                            {
+                                stream.Seek(0, SeekOrigin.Begin);
+                                stream.CopyTo(file);
+                            }
+                        }
+                        else
+                        {
+                            success = false;
+                        }
+                    }
+                }
+                return success;
             }
         }
     }

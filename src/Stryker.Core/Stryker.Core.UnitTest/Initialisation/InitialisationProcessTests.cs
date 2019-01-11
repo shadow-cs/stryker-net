@@ -46,8 +46,8 @@ namespace Stryker.Core.UnitTest.Initialisation
                     TargetFramework = "netcoreapp2.0"
                 });
             initialTestProcessMock.Setup(x => x.InitialTest(It.IsAny<ITestRunner>())).Returns(999);
-            initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<string>(), It.IsAny<string>()));
-            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>()))
+            initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<AdhocWorkspace>()));
+            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(Enumerable.Empty<PortableExecutableReference>());
 
             var target = new InitialisationProcess(
@@ -95,9 +95,9 @@ namespace Stryker.Core.UnitTest.Initialisation
                     ProjectUnderTestPath = @"c:\ExampleProject\",
                     TargetFramework = "netcoreapp2.0"
                 });
-            initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<string>(), It.IsAny<string>()));
+            initialBuildProcessMock.Setup(x => x.InitialBuild(It.IsAny<AdhocWorkspace>()));
             initialTestProcessMock.Setup(x => x.InitialTest(It.IsAny<ITestRunner>())).Throws(new StrykerInputException("")); // failing test
-            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>()))
+            assemblyReferenceResolverMock.Setup(x => x.ResolveReferences(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(Enumerable.Empty<PortableExecutableReference>()).Verifiable();
 
             var target = new InitialisationProcess(
