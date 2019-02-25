@@ -6,7 +6,7 @@ namespace StrykerNet.UnitTest.Mutants.TestResources
 {
     public class TestClass
     {
-        void TestMethod()
+        string TestMethod()
         {
             int test = 10;
             test = Stryker.ActiveMutationHelper.ActiveMutation == 0 ? test - i : test + i;
@@ -15,6 +15,10 @@ namespace StrykerNet.UnitTest.Mutants.TestResources
             var (one, two) = Stryker.ActiveMutationHelper.ActiveMutation == 4 ? (1 - 1, "") : (1 + 1, "");
             int Add(int x, int y) => Stryker.ActiveMutationHelper.ActiveMutation == 5 ? x - y : x + y;
             Action act = () => Console.WriteLine(Stryker.ActiveMutationHelper.ActiveMutation == 6 ? 1 - 1 : 1 + 1, Stryker.ActiveMutationHelper.ActiveMutation == 7 ? 1 - 1 : 1 + 1);
+
+            string someString = "";
+            return someString.Replace(Stryker.ActiveMutationHelper.ActiveMutation == 7 ? "" : "ab", Stryker.ActiveMutationHelper.ActiveMutation == 8 ? "" : "cd")
+                .Replace(Stryker.ActiveMutationHelper.ActiveMutation == 9 ? "" : "12", Stryker.ActiveMutationHelper.ActiveMutation == 10 ? "" : "34");
         }
     }
 }
