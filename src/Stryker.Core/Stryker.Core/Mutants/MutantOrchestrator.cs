@@ -30,6 +30,7 @@ namespace Stryker.Core.Mutants
         private int _mutantCount { get; set; } = 0;
         private IEnumerable<IMutator> _mutators { get; set; }
         private ILogger _logger { get; set; }
+        private SyntaxNode _rootNode { get; set; }
 
         /// <param name="mutators">The mutators that should be active during the mutation process</param>
         public MutantOrchestrator(IEnumerable<IMutator> mutators = null)
@@ -62,12 +63,18 @@ namespace Stryker.Core.Mutants
             return tempMutants;
         }
 
+        public SyntaxNode Mutate(SyntaxNode rootNode)
+        {
+            _rootNode = rootNode;
+            return MutateNode(rootNode);
+        }
+
         /// <summary>
         /// Recursively mutates a single SyntaxNode
         /// </summary>
         /// <param name="currentNode">The current root node</param>
         /// <returns>Mutated node</returns>
-        public SyntaxNode Mutate(SyntaxNode currentNode)
+        private SyntaxNode MutateNode(SyntaxNode currentNode)
         {
             var expressions = GetExpressionSyntax(currentNode).Where(x => x != null);
             if (expressions.Any())
@@ -81,7 +88,7 @@ namespace Stryker.Core.Mutants
                         if (GetExpressionSyntax(expressionStatement) is var subExpressionSyntax && subExpressionSyntax != null)
                         {
                             // The expression of a ExpressionStatement cannot be mutated directly
-                            return currentNodeCopy.ReplaceNode(currentExpressionSyntax, Mutate(currentExpressionSyntax));
+                            return currentNodeCopy.ReplaceNode(currentExpressionSyntax, MutateNode(currentExpressionSyntax));
                         }
                         else
                         {
@@ -92,7 +99,7 @@ namespace Stryker.Core.Mutants
                     }
                     else if (expressionSyntax is ParenthesizedLambdaExpressionSyntax lambda)
                     {
-                        return currentNode.ReplaceNode(lambda.Body, Mutate(lambda.Body));
+                        return currentNode.ReplaceNode(lambda.Body, MutateNode(lambda.Body));
                     } else
                     {
                         // The mutations should be placed using a ConditionalExpression
@@ -107,19 +114,21 @@ namespace Stryker.Core.Mutants
                 // Expression kinds that contain a body and can't have their scope changed should be mutated recursively
                 if (currentNode is LocalFunctionStatementSyntax localFunction)
                 {
-                    return localFunction.ReplaceNode(localFunction.Body, Mutate(localFunction.Body));
+                    return localFunction.ReplaceNode(localFunction.Body, MutateNode(localFunction.Body));
                 }
                 if (currentNode is IfStatementSyntax ifStatement)
                 {
+                    var trackedNodes = _rootNode.TrackNodes(ifStatement.Condition, ifStatement.Statement, ifStatement.Else, currentNode);
+                    ifStatement = trackedNodes.GetCurrentNode(currentNode) as IfStatementSyntax;
                     if (!ifStatement.Condition.DescendantNodes().Any(x => x.IsKind(SyntaxKind.DeclarationExpression) || x.IsKind(SyntaxKind.DeclarationPattern)))
                     {
                         ifStatement = ifStatement.ReplaceNode(ifStatement.Condition, MutateWithConditionalExpressions(ifStatement.Condition));
                     }
                     if (ifStatement.Else != null)
                     {
-                        ifStatement = ifStatement.ReplaceNode(ifStatement.Else, Mutate(ifStatement.Else));
+                        ifStatement = ifStatement.ReplaceNode(ifStatement.Else, MutateNode(ifStatement.GetCurrentNode(ifStatement.Else)));
                     }
-                    return ifStatement.ReplaceNode(ifStatement.Statement, Mutate(ifStatement.Statement));
+                    return ifStatement.ReplaceNode(ifStatement.Statement, MutateNode(ifStatement.GetCurrentNode(ifStatement.Statement)));
                 }
                 return MutateWithIfStatements(statement);
             }
@@ -127,17 +136,18 @@ namespace Stryker.Core.Mutants
             {
                 // No statement found yet, search deeper in the tree for statements to mutate
                 var children = currentNode.ChildNodes().ToList();
-                var childCopy = currentNode.TrackNodes(children);
+                var trackedNodes = _rootNode.TrackNodes(children.Append(currentNode));
                 foreach (var child in children)
                 {
-                    var mutatedNode = Mutate(child);
-                    var originalNode = childCopy.GetCurrentNode(child);
+                    var mutatedNode = MutateNode(child);
+                    var originalNode = trackedNodes.GetCurrentNode(child);
                     if (!mutatedNode.IsEquivalentTo(originalNode))
                     {
-                        childCopy = childCopy.ReplaceNode(originalNode, mutatedNode);
+                        trackedNodes = trackedNodes.ReplaceNode(originalNode, mutatedNode);
                     }
                 }
-                return childCopy;
+                var ogNode = trackedNodes.GetCurrentNode(currentNode);
+                return ogNode;
             }
         }
 
